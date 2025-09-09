@@ -10,8 +10,8 @@ Educational project for the Master’s program (2025) in “Software Engineering
 - ESLint (flat config) + typescript-eslint + eslint-plugin-unused-imports — type-aware linting
 
 ## Requirements
-- Node.js 18.18+ (LTS recommended) or 20+
-- npm 8+ / 9+
+- Node.js 22+
+- npm 10+
 
 ## Environment setup
 1) Install dependencies:
