@@ -3,8 +3,8 @@ import { AppShell, Burger, Group, Text, Title, Box } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Routes, Route } from 'react-router-dom';
 import Overview from './pages/Overview';
-import TprLab1 from './decision-theory/TprLab1';
-import TprLab2 from './decision-theory/TprLab2';
+import TprLab1 from './disciplines/decision-theory/Lab1';
+import TprLab2 from './disciplines/decision-theory/Lab2';
 import { SidebarNav } from './components/SidebarNav';
 
 function App(): ReactElement {
