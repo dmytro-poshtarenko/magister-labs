@@ -82,6 +82,7 @@ function App(): ReactElement {
       <AppShell.Footer>
         <Group h="100%" px="md" justify="space-between">
           <Text size="sm" c="dimmed">© {new Date().getFullYear()} Magister Labs</Text>
+          <Text size="sm" c="dimmed">Created by Poshtarenko Dmytro</Text>
         </Group>
       </AppShell.Footer>
     </AppShell>
