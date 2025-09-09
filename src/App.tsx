@@ -18,7 +18,7 @@ function App(): ReactElement {
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Box component="img" src="/favicon.svg" alt="Magister Labs logo" w={24} h={24} />
+            <Box component="img" src={import.meta.env.BASE_URL + 'favicon.svg'} alt="Magister Labs logo" w={24} h={24} />
             <Title order={4}>Magister Labs</Title>
           </Group>
           <Text size="sm" c="dimmed">Header</Text>
