@@ -13,16 +13,24 @@ import {
   TextInput,
   Divider,
   Alert,
+  Tooltip,
 } from '@mantine/core';
 
+// Орієнтація задачі: 'gain' — максимізація виграшів, 'cost' — мінімізація витрат
 type Orientation = 'gain' | 'cost';
 
+// Результати критеріїв ризику для кожної альтернативи
+// ev — очікуване значення (КОЗ/EMV)
+// savage — максимальний «жаль» (мінімакс Севіджа)
+// meanVariance — корисність mean − k·variance
+// threshold — очікуваний дефіцит/надлишок відносно порога T (менше — краще)
+// mostLikely — значення у найвірогіднішому стані
 type RiskCriteriaResults = {
   ev: number[];
-  savage: number[]; // max regret per alternative
-  meanVariance: number[]; // utility score
-  threshold: number[]; // probability of meeting threshold
-  mostLikely: number[]; // payoff in the most probable state
+  savage: number[];
+  meanVariance: number[];
+  threshold: number[];
+  mostLikely: number[];
   bestIndexByCriterion: {
     ev: number;
     savage: number;
@@ -32,10 +40,12 @@ type RiskCriteriaResults = {
   };
 };
 
+// Створює числову матрицю rows×cols, заповнену значенням fill
 function createMatrix(rows: number, cols: number, fill = 0): number[][] {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => fill));
 }
 
+// Змінює розмір матриці: обрізає зайве та добиває нулями до потрібних розмірів
 function resizeMatrix(matrix: number[][], rows: number, cols: number): number[][] {
   const next = matrix.map((r) => r.slice(0, cols));
   while (next.length < rows) next.push(Array.from({ length: cols }, () => 0));
@@ -43,12 +53,21 @@ function resizeMatrix(matrix: number[][], rows: number, cols: number): number[][
   return next.slice(0, rows);
 }
 
+// Нормалізує ваги/ймовірності: приводить суму до 1; якщо сума некоректна — повертає рівні ваги
 function normalizeWeights(weights: number[]): number[] {
   const sum = weights.reduce((a, b) => a + (isFinite(b) ? b : 0), 0);
   if (sum <= 0) return Array.from({ length: weights.length }, () => 1 / weights.length);
   return weights.map((w) => w / sum);
 }
 
+/**
+ * Обчислює критерії для прийняття рішень в умовах ризику.
+ * payoffs — матриця виграшів/витрат: рядки — альтернативи, стовпці — стани природи
+ * probs — ймовірності станів природи (нормалізуються всередині)
+ * orientation — виграші чи витрати (визначає, що є «краще/гірше»)
+ * riskAversionK — рівень несхильності до ризику в моделі mean−k·variance
+ * threshold — порогове значення T (використовується для підрахунку очікуваного дефіциту/надлишку)
+ */
 function computeRiskResults(
   payoffs: number[][],
   probs: number[],
@@ -61,6 +80,7 @@ function computeRiskResults(
   const p = normalizeWeights(probs.slice(0, n));
   const isGain = orientation === 'gain';
 
+  // Найкраще значення в кожному стовпці (для побудови матриці «жалю»)
   const colBest: number[] = Array.from({ length: n }, (_, j) => {
     const colVals: number[] = Array.from({ length: m }, (_, i) => payoffs[i]?.[j] ?? 0);
     if (colVals.length === 0) return 0;
@@ -69,6 +89,7 @@ function computeRiskResults(
       : colVals.reduce((a, b) => (b < a ? b : a), colVals[0]!);
   });
 
+  // Матриця «жалю»: наскільки гірший результат за найкращий у стані
   const regretMatrix: number[][] = Array.from({ length: m }, (_, i) =>
     Array.from({ length: n }, (_, j) => {
       const v = payoffs[i]?.[j] ?? 0;
@@ -78,9 +99,11 @@ function computeRiskResults(
     }),
   );
 
+  // Очікуване значення альтернативи за відомих ймовірностей
   const expectedValue = (row: number[]): number =>
     row.reduce((acc, v, j) => acc + v * (p[j] ?? 0), 0);
 
+  // Дисперсія результату альтернативи (з урахуванням ймовірностей)
   const expectedVariance = (row: number[]): number => {
     const mean = expectedValue(row);
     return row.reduce((acc, v, j) => {
@@ -93,7 +116,7 @@ function computeRiskResults(
   const ev: number[] = [];
   const savage: number[] = [];
   const meanVariance: number[] = [];
-  const thrProb: number[] = [];
+  const thrGap: number[] = [];
   const mostLikely: number[] = [];
 
   const mostProbStateIndex = (() => {
@@ -117,26 +140,27 @@ function computeRiskResults(
 
     ev.push(mean);
 
-    // Savage: minimize max regret per row
+    // Севіджа: мінімізуємо максимальний «жаль» у рядку
     const maxRegret =
       regretMatrix[i]?.reduce((a, b) => (b > a ? b : a), regretMatrix[i]?.[0] ?? 0) ?? 0;
     savage.push(maxRegret);
 
-    // Mean-variance utility (maximize)
+    // Корисність mean − k·variance (максимізуємо)
     const utility = isGain ? mean - riskAversionK * variance : -(mean + riskAversionK * variance);
     meanVariance.push(utility);
 
-    // Threshold probability
-    const probMeet = row.reduce((acc, v, j) => {
-      const cond = isGain ? v >= threshold : v <= threshold;
-      return acc + (cond ? (p[j] ?? 0) : 0);
+    // Очікуваний дефіцит/надлишок відносно порога (менше — краще)
+    const gap = row.reduce((acc, v, j) => {
+      const diff = isGain ? Math.max(0, threshold - v) : Math.max(0, v - threshold);
+      return acc + (p[j] ?? 0) * diff;
     }, 0);
-    thrProb.push(probMeet);
+    thrGap.push(gap);
 
-    // Most likely event criterion
+    // Критерій найвірогіднішого стану
     mostLikely.push(row[mostProbStateIndex] ?? 0);
   }
 
+  // Повертає індекс найкращого/найгіршого елемента масиву залежно від pickBest
   const selectIndex = (arr: number[], pickBest: boolean): number => {
     if (arr.length === 0) return 0;
     let idx = 0;
@@ -155,25 +179,31 @@ function computeRiskResults(
     ev: selectIndex(ev, isGain),
     savage: selectIndex(savage, false),
     meanVariance: selectIndex(meanVariance, true),
-    threshold: selectIndex(thrProb, true),
+    threshold: selectIndex(thrGap, false),
     mostLikely: selectIndex(mostLikely, isGain),
   };
 
-  return { ev, savage, meanVariance, threshold: thrProb, mostLikely, bestIndexByCriterion };
+  return { ev, savage, meanVariance, threshold: thrGap, mostLikely, bestIndexByCriterion };
 }
 
 export default function TprLab2(): ReactElement {
+  // Кількість альтернатив та станів природи
   const [numAlt, setNumAlt] = useState<number>(3);
   const [numStates, setNumStates] = useState<number>(3);
+  // Матриця значень (виграші/витрати) та підписи
   const [matrix, setMatrix] = useState<number[][]>(() => createMatrix(3, 3));
   const [altNames, setAltNames] = useState<string[]>(['A1', 'A2', 'A3']);
   const [stateNames, setStateNames] = useState<string[]>(['F1', 'F2', 'F3']);
+  // Орієнтація задачі (виграші/витрати)
   const [orientation, setOrientation] = useState<Orientation>('gain');
+  // Ймовірності станів, параметр ризику k і поріг T
   const [probabilities, setProbabilities] = useState<number[]>([0.33, 0.33, 0.34]);
   const [riskK, setRiskK] = useState<number>(0.5);
   const [threshold, setThreshold] = useState<number>(0);
+  // Кеш результатів обчислення критеріїв
   const [computed, setComputed] = useState<RiskCriteriaResults | null>(null);
 
+  // Синхронізує розміри матриці, назв і векторів імовірностей
   const syncDimensions = (alts: number, states: number) => {
     setMatrix((prev) => resizeMatrix(prev, alts, states));
     setAltNames((prev) => {
@@ -193,12 +223,14 @@ export default function TprLab2(): ReactElement {
     });
   };
 
+  // Сума імовірностей (для валідації) та прапорець валідності
   const probSum = useMemo(
     () => probabilities.slice(0, numStates).reduce((a, b) => a + (isFinite(b) ? b : 0), 0),
     [probabilities, numStates],
   );
   const probValid = Math.abs(probSum - 1) < 1e-6;
 
+  // Підготує дані та запускає обчислення критеріїв
   const runCompute = () => {
     const weights = probabilities.slice(0, numStates);
     setComputed(
@@ -239,8 +271,9 @@ export default function TprLab2(): ReactElement {
             k задає рівень несхильності до ризику (більший k — сильніше «штрафуємо» дисперсію).
           </Text>
           <Text>
-            <b>Критерій граничного рівня</b>: максимізуємо ймовірність досягнення порога T (для
-            виграшів — ≥ T; для витрат — ≤ T).
+            <b>Критерій граничного рівня</b>: мінімізуємо очікуваний відхід від порога T. Для
+            виграшів — очікуваний дефіцит max(0, T − значення), для витрат — очікуваний надлишок
+            max(0, значення − T). Менше — краще.
           </Text>
           <Text>
             <b>Найвірогідніший стан</b>: фокус на стані з найбільшою ймовірністю та оптимізація під
@@ -273,7 +306,8 @@ export default function TprLab2(): ReactElement {
         </Text>
         <Text>
           За <b>граничним рівнем</b> встановлюється поріг T (наприклад, «не менше 8 т/га» для
-          виграшів), і обирається культура з найбільшою ймовірністю досягти цього порога.
+          виграшів), і обирається культура, яка в середньому найменше не дотягує до цього порога.
+          Якщо йдеться про витрати — та, що в середньому найменше перевищує запланований бюджет.
         </Text>
         <Text>
           За <b>найвірогіднішим станом</b> агроном фокусується на погоді з найвищою ймовірністю та
@@ -320,12 +354,32 @@ export default function TprLab2(): ReactElement {
               ]}
             />
             <Group>
-              <Text size="sm">Рівень несхильності до ризику k: {riskK.toFixed(2)}</Text>
+              <Group gap={6} align="center">
+                <Text size="sm">Рівень несхильності до ризику k: {riskK.toFixed(2)}</Text>
+                <Tooltip
+                  label="k — вага ризику у mean − k·variance; більше k — сильніший штраф за мінливість"
+                  withArrow
+                >
+                  <Text size="sm" c="dimmed" style={{ cursor: 'help' }}>
+                    ?
+                  </Text>
+                </Tooltip>
+              </Group>
               <Slider min={0} max={2} step={0.05} value={riskK} onChange={setRiskK} w={220} />
             </Group>
-            <Group>
+            <Group align="center" gap={8}>
+              <Group align="center" gap={6}>
+                <Text fw={500}>Поріг T</Text>
+                <Tooltip
+                  label="Поріг T: бажаний рівень. Для виграшів — мінімізуємо середній дефіцит; для витрат — середнє перевищення"
+                  withArrow
+                >
+                  <Text size="sm" c="dimmed" style={{ cursor: 'help' }}>
+                    ?
+                  </Text>
+                </Tooltip>
+              </Group>
               <NumberInput
-                label="Поріг T"
                 value={threshold}
                 onChange={(v) => {
                   const num = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : 0;
@@ -457,7 +511,7 @@ export default function TprLab2(): ReactElement {
                 <Table.Th>КОЗ (очікуване значення)</Table.Th>
                 <Table.Th>Севіджа (мінімаксний ризик)</Table.Th>
                 <Table.Th>КОЗ–Дисперсія (корисність)</Table.Th>
-                <Table.Th>Ймовірність досягнення порога</Table.Th>
+                <Table.Th>Очік. дефіцит/надлишок до T</Table.Th>
                 <Table.Th>Найвірогідніший стан</Table.Th>
               </Table.Tr>
             </Table.Thead>
@@ -502,7 +556,7 @@ export default function TprLab2(): ReactElement {
               {altNames[computed.bestIndexByCriterion.meanVariance] ??
                 `A${computed.bestIndexByCriterion.meanVariance + 1}`}
             </b>
-            ; Граничний рівень —{' '}
+            ; Граничний рівень (очікуваний дефіцит/надлишок) —{' '}
             <b>
               {altNames[computed.bestIndexByCriterion.threshold] ??
                 `A${computed.bestIndexByCriterion.threshold + 1}`}

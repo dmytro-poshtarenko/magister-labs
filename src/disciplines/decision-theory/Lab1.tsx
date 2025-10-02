@@ -16,8 +16,11 @@ import {
   Alert,
 } from '@mantine/core';
 
+// Орієнтація задачі: 'gain' — максимізація виграшів, 'cost' — мінімізація витрат
 type Orientation = 'gain' | 'cost';
 
+// Сукупність результатів за всіма критеріями для кожної альтернативи
+// та індекси найкращих альтернатив окремо по кожному критерію
 type CriteriaResults = {
   maximax: number[];
   wald: number[];
@@ -31,10 +34,12 @@ type CriteriaResults = {
   };
 };
 
+// Створює числову матрицю розміром rows×cols і заповнює значенням fill
 function createMatrix(rows: number, cols: number, fill = 0): number[][] {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => fill));
 }
 
+// Акуратно змінює розмір матриці: обрізає зайве та додає нулі до потрібних розмірів
 function resizeMatrix(matrix: number[][], rows: number, cols: number): number[][] {
   const next = matrix.map((r) => r.slice(0, cols));
   while (next.length < rows) next.push(Array.from({ length: cols }, () => 0));
@@ -42,12 +47,20 @@ function resizeMatrix(matrix: number[][], rows: number, cols: number): number[][
   return next.slice(0, rows);
 }
 
+// Нормалізує ваги/ймовірності до суми 1; якщо сума некоректна — повертає рівні ваги
 function normalizeWeights(weights: number[]): number[] {
   const sum = weights.reduce((a, b) => a + (isFinite(b) ? b : 0), 0);
   if (sum <= 0) return Array.from({ length: weights.length }, () => 1 / weights.length);
   return weights.map((w) => w / sum);
 }
 
+/**
+ * Обчислює значення критеріїв для всіх альтернатив.
+ * payoffs — матриця виграшів/витрат (рядки — альтернативи, стовпці — стани природи)
+ * weights — ваги станів (ймовірності) або null для рівних ваг (Лаплас)
+ * q — коефіцієнт песимізму (Гурвіц: q·worst + (1−q)·best)
+ * orientation — виграші чи витрати (впливає на те, що вважається «кращим/гіршим»)
+ */
 function computeResults(
   payoffs: number[][],
   weights: number[] | null,
@@ -60,10 +73,12 @@ function computeResults(
 
   const isGain = orientation === 'gain';
 
+  // Допоміжні агрегати для рядка матриці
   const rowMax = (row: number[]) =>
     row.length ? row.reduce((a, b) => (b > a ? b : a), row[0]!) : 0;
   const rowMin = (row: number[]) =>
     row.length ? row.reduce((a, b) => (b < a ? b : a), row[0]!) : 0;
+  // Середнє зважене рядка (Лаплас / Байєса–Лапласа)
   const rowAvg = (row: number[]) => row.reduce((acc, v, j) => acc + v * (safeWeights[j] ?? 0), 0);
 
   const maximax: number[] = [];
@@ -78,12 +93,17 @@ function computeResults(
     const best = isGain ? max : min;
     const worst = isGain ? min : max;
 
+    // Максимакс: обираємо найкраще можливе значення у кожному рядку
     maximax.push(isGain ? max : min);
+    // Вальда: максимін (для виграшів) / мінімакс (для витрат)
     wald.push(isGain ? min : max);
+    // Гурвіц: суміш найгіршого та найкращого з вагами q і (1−q)
     hurwicz.push(q * worst + (1 - q) * best);
+    // Лаплас / Байєса–Лапласа: середнє зважене значення рядка
     laplace.push(rowAvg(row));
   }
 
+  // Повертає індекс найкращого/найгіршого елемента масиву залежно від pickBest
   const selectIndex = (arr: number[], pickBest: boolean): number => {
     if (arr.length === 0) return 0;
     let idx = 0;
@@ -109,18 +129,23 @@ function computeResults(
 }
 
 export default function TprLab1(): ReactElement {
+  // Кількість альтернатив та станів природи
   const [numAlt, setNumAlt] = useState<number>(3);
   const [numStates, setNumStates] = useState<number>(3);
+  // Матриця значень (виграші/витрати) та підписи рядків/стовпців
   const [matrix, setMatrix] = useState<number[][]>(() => createMatrix(3, 3));
   const [altNames, setAltNames] = useState<string[]>(['A1', 'A2', 'A3']);
   const [stateNames, setStateNames] = useState<string[]>(['F1', 'F2', 'F3']);
+  // Чи використовувати відомі ймовірності станів (для Байєса–Лапласа)
   const [useProb, setUseProb] = useState<boolean>(false);
   const [probabilities, setProbabilities] = useState<number[]>([0.33, 0.33, 0.34]);
+  // Орієнтація задачі та параметр Гурвіца q (ступінь песимізму)
   const [orientation, setOrientation] = useState<Orientation>('gain');
-  const [q, setQ] = useState<number>(0.5); // pessimism
+  const [q, setQ] = useState<number>(0.5); // ступінь песимізму для критерію Гурвіца
+  // Кеш останнього обчислення критеріїв
   const [computed, setComputed] = useState<CriteriaResults | null>(null);
 
-  // Keep dimensions in sync
+  // Синхронізує розміри всіх пов'язаних структур із новими кількостями
   const syncDimensions = (alts: number, states: number) => {
     setMatrix((prev) => resizeMatrix(prev, alts, states));
     setAltNames((prev) => {
@@ -140,12 +165,15 @@ export default function TprLab1(): ReactElement {
     });
   };
 
+  // Сума введених ймовірностей (для валідації)
   const probSum = useMemo(
     () => probabilities.slice(0, numStates).reduce((a, b) => a + (isFinite(b) ? b : 0), 0),
     [probabilities, numStates],
   );
+  // Є валідною, якщо не вмикали ймовірності, або коли сума ≈ 1
   const probValid = !useProb || Math.abs(probSum - 1) < 1e-6;
 
+  // Готує дані та запускає обчислення критеріїв
   const runCompute = () => {
     const weights = useProb ? probabilities.slice(0, numStates) : null;
     setComputed(
