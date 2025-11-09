@@ -11,6 +11,7 @@ export const navigation: NavSection[] = [
     children: [
       { label: '1. Аналіз альтернатив в умовах невизначенності', path: '/tpr-lab-1' },
       { label: '2. Вибір рішення в умовах ризику', path: '/tpr-lab-2' },
+      { label: '4. Метод аналізу ієрархій (МАІ)', path: '/tpr-lab-4' },
     ],
   },
 ];

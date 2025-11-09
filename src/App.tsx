@@ -5,6 +5,7 @@ import { Routes, Route } from 'react-router-dom';
 import Overview from './pages/Overview';
 import TprLab1 from './disciplines/decision-theory/Lab1';
 import TprLab2 from './disciplines/decision-theory/Lab2';
+import TprLab4 from './disciplines/decision-theory/Lab4';
 import { SidebarNav } from './components/SidebarNav';
 
 function App(): ReactElement {
@@ -43,6 +44,7 @@ function App(): ReactElement {
             <Route path="/" element={<Overview />} />
             <Route path="/tpr-lab-1" element={<TprLab1 />} />
             <Route path="/tpr-lab-2" element={<TprLab2 />} />
+            <Route path="/tpr-lab-4" element={<TprLab4 />} />
             <Route
               path="*"
               element={
