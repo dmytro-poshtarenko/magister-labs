@@ -7,6 +7,7 @@ import TprLab1 from './disciplines/decision-theory/Lab1';
 import TprLab2 from './disciplines/decision-theory/Lab2';
 import TprLab4 from './disciplines/decision-theory/Lab4';
 import TprLab5 from './disciplines/decision-theory/Lab5';
+import TprLab6 from './disciplines/decision-theory/Lab6';
 import { SidebarNav } from './components/SidebarNav';
 
 function App(): ReactElement {
@@ -47,6 +48,7 @@ function App(): ReactElement {
             <Route path="/tpr-lab-2" element={<TprLab2 />} />
             <Route path="/tpr-lab-4" element={<TprLab4 />} />
             <Route path="/tpr-lab-5" element={<TprLab5 />} />
+            <Route path="/tpr-lab-6" element={<TprLab6 />} />
             <Route
               path="*"
               element={
