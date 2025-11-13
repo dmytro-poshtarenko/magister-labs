@@ -14,6 +14,7 @@ export const navigation: NavSection[] = [
       { label: '4. Метод аналізу ієрархій', path: '/tpr-lab-4' },
       { label: '5. Теорія ігор', path: '/tpr-lab-5' },
       { label: '6. Метод розстановки пріоритетів', path: '/tpr-lab-6' },
+      { label: '7. Графічний метод', path: '/tpr-lab-7' },
     ],
   },
 ];
