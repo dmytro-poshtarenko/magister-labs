@@ -11,6 +11,9 @@ import TprLab6 from './disciplines/decision-theory/Lab6';
 import TprLab7 from './disciplines/decision-theory/Lab7';
 import SaopiLab2 from './disciplines/saopi/lab-2/Lab2';
 import SaopiLab3 from './disciplines/saopi/lab-3/Lab3';
+import SaopiLab4 from './disciplines/saopi/lab-4/Lab4';
+import SaopiLab5 from './disciplines/saopi/lab-5/Lab5';
+import SaopiLab6 from './disciplines/saopi/lab-6/Lab6';
 import { SidebarNav } from './components/SidebarNav';
 
 function App(): ReactElement {
@@ -55,6 +58,9 @@ function App(): ReactElement {
             <Route path="/tpr-lab-7" element={<TprLab7 />} />
             <Route path="/saopi-lab-2" element={<SaopiLab2 />} />
             <Route path="/saopi-lab-3" element={<SaopiLab3 />} />
+            <Route path="/saopi-lab-4" element={<SaopiLab4 />} />
+            <Route path="/saopi-lab-5" element={<SaopiLab5 />} />
+            <Route path="/saopi-lab-6" element={<SaopiLab6 />} />
             <Route
               path="*"
               element={
