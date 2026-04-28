@@ -1,13 +1,18 @@
+import { IconBinaryTree, IconLayoutDashboard, IconSitemap } from '@tabler/icons-react';
+
 export type NavChild = { label: string; path: string };
-export type NavSection = { label: string; path?: string; children?: NavChild[] };
+export type NavIcon = typeof IconLayoutDashboard;
+export type NavSection = { label: string; icon: NavIcon; path?: string; children?: NavChild[] };
 
 export const navigation: NavSection[] = [
   {
     label: 'Огляд',
+    icon: IconLayoutDashboard,
     path: '/',
   },
   {
     label: 'Теорія прийняття рішень',
+    icon: IconBinaryTree,
     children: [
       { label: '1. Аналіз альтернатив в умовах невизначенності', path: '/tpr-lab-1' },
       { label: '2. Вибір рішення в умовах ризику', path: '/tpr-lab-2' },
@@ -19,6 +24,7 @@ export const navigation: NavSection[] = [
   },
   {
     label: 'Системний аналіз об’єктів програмної інженерії',
+    icon: IconSitemap,
     children: [
       {
         label: '2. Застосування табличного методу для формалізації задач системного аналізу',
