@@ -14,6 +14,9 @@ import SaopiLab3 from './disciplines/saopi/lab-3/Lab3';
 import SaopiLab4 from './disciplines/saopi/lab-4/Lab4';
 import SaopiLab5 from './disciplines/saopi/lab-5/Lab5';
 import SaopiLab6 from './disciplines/saopi/lab-6/Lab6';
+import SaopiLab7 from './disciplines/saopi/lab-7/Lab7';
+import SaopiLab8 from './disciplines/saopi/lab-8/Lab8';
+import SaopiLab9 from './disciplines/saopi/lab-9/Lab9';
 import { SidebarNav } from './components/SidebarNav';
 
 function App(): ReactElement {
@@ -61,6 +64,9 @@ function App(): ReactElement {
             <Route path="/saopi-lab-4" element={<SaopiLab4 />} />
             <Route path="/saopi-lab-5" element={<SaopiLab5 />} />
             <Route path="/saopi-lab-6" element={<SaopiLab6 />} />
+            <Route path="/saopi-lab-7" element={<SaopiLab7 />} />
+            <Route path="/saopi-lab-8" element={<SaopiLab8 />} />
+            <Route path="/saopi-lab-9" element={<SaopiLab9 />} />
             <Route
               path="*"
               element={
